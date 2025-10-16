@@ -34,10 +34,15 @@ class Transaction:
     
     def abort(self):
         #TODO: do roll-back and any other necessary operations
+        self.active = False
+        #print("Transaction aborted.")
         return False
 
     
     def commit(self):
         # TODO: commit to database
+        self.active = False
+       # print("Transaction committed.")
         return True
+
 
