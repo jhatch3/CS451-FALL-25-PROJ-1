@@ -40,11 +40,12 @@ class Index:
     """
 
     def create_index(self, column_number):
-        pass
+        if self.indices[column_number] is None:
+            self.indices[column_number] = {}
 
     """
     # optional: Drop index of specific column
     """
 
     def drop_index(self, column_number):
-        pass
+        self.indices[column_number] = None
