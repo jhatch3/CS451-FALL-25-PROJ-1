@@ -9,11 +9,21 @@ SCHEMA_ENCODING_COLUMN = 3
 
 class Record:
 
-    def __init__(self, rid, key, columns):
+    def __init__(self, rid, key, schema_encoding, columns):
         self.rid = rid
         self.key = key
         self.columns = columns
+        self.schema_encoding = schema_encoding  #Each record has a schema encoding showing which ones updated
 
+
+"""
+The Table class provides the core of our relational storage functionality. All columns are 64-bit
+integers in this implementation. Users mainly interact with tables through queries. Tables provide
+a logical view of the actual physically stored data and mostly manage the storage and retrieval of
+data. Each table is responsible for managing its pages and requires an internal page directory that,
+given a RID, returns the actual physical location of the record. The table class should also manage
+the periodical merge of its corresponding page ranges.
+"""
 class Table:
 
     """
@@ -27,6 +37,7 @@ class Table:
         self.num_columns = num_columns
         self.page_directory = {}
         self.index = Index(self)
+        self.allrecords = {}        #TODO dont think this is correct
         pass
 
     def __merge(self):
