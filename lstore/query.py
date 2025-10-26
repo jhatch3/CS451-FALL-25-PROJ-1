@@ -1,6 +1,16 @@
 from lstore.table import Table, Record
 from lstore.index import Index
 
+"""
+The Query class provides standard SQL operations such as insert, select, update, delete, and sum.
+The select function returns all the records matching the search key (if any), and only the projected
+columns of the matching records are returned. The insert function will insert a new record in the
+table. All columns should be passed a non-NULL value when inserting. The update function
+updates values for the specified set of columns. The delete function will delete the record with the
+specified key from the table. The sum function will sum over the values of the selected column for
+a range of records specified by their key values. We query tables by direct function calls rather
+than parsing SQL queries.
+"""
 
 class Query:
     """
@@ -30,8 +40,23 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
+        if None in columns:
+            return False    #All columns should be passed a non-NULL value when inserting
         schema_encoding = '0' * self.table.num_columns
-        pass
+        # In the database, each record is assigned a unique identifier called a RID, which is often the physical
+        # location of where the record is actually stored. In L-Store, this identifier will never change during
+        # a record’s lifecycle
+
+        #TODO Find out what to put for RID
+        new_record = Record(rid=0, key=columns[0], columns=columns[1:], schema_encoding = schema_encoding)
+
+        #TODO need to somehow incorporate pages
+        self.table.allrecords[new_record.key] = new_record
+        if self.table.allrecords[columns[0]] == new_record:
+            return True
+        else:
+            return False 
+ 
 
     
     """
@@ -43,7 +68,7 @@ class Query:
     # Returns False if record locked by TPL
     # Assume that select will never be called on a key that doesn't exist
     """
-    def select(self, search_key, search_key_index, projected_columns_index):
+    def select(self, search_key, search_key_index, projected_columns_index): 
         pass
 
     
@@ -67,7 +92,22 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, primary_key, *columns):
-        pass
+
+        #TODO Probably change way of finding record using locate from index.py
+        #     And do something with pages probably
+        record = self.table.allrecords[primary_key]
+        if record == None:
+            return False
+        new_encoding = ''
+        for col_idx in range(self.table.num_columns-1):
+            if record.columns[col_idx] != columns[col_idx]:
+                new_encoding += '1'
+            else:
+                new_encoding += '0'
+            
+        record.schema_encoding = new_encoding       #Column updated so schema bit gets updated
+        self.table.allrecords[primary_key] = record
+        return True
 
     
     """

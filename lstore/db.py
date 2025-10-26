@@ -1,5 +1,12 @@
 from lstore.table import Table
-
+"""
+The Database class is a general interface to the database and handles high-level operations such as
+starting and shutting down the database instance and loading the database from stored disk files.
+This class also handles the creation and deletion of tables via the create and drop function. The
+create function will create a new table in the database. The Table constructor takes as input the
+name of the table, the number of columns, and the index of the key column. The drop function
+drops the specified table.
+"""
 class Database():
 
     def __init__(self):
