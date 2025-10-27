@@ -1,4 +1,3 @@
-# lstore/test/test_table.py
 from lstore.db import Database
 from lstore.query import Query
 
@@ -37,6 +36,54 @@ def run_tests():
 
     print("All basic tests passed!")
 
+
+def test_edges():
+    print("Running edge tests...")
+    db = Database()
+    t = db.create_table("Edge", 5, 0)
+    q = Query(t)
+
+    # wrong arity / None not allowed
+    assert q.insert(1,2,3,4) is False
+    assert q.insert(1,2,3,4,None) is False
+
+    # valid insert
+    assert q.insert(10,100,200,300,400) is True
+
+    # PK-only lookup works
+    assert q.select(10, 1, [1,1,1,1,1]) == []  # searching on non-PK col returns []
+
+    # projected columns respected
+    proj = q.select(10, t.key, [1,0,1,0,1])[0].columns
+    assert proj == [10, None, 200, None, 400]   # keep placeholders for unprojected cols
+
+
+    # update no-op (all None) leaves unchanged
+    before = q.select(10, t.key, [1,1,1,1,1])[0].columns
+    assert q.update(10, None, None, None, None, None) is True
+    after = q.select(10, t.key, [1,1,1,1,1])[0].columns
+    assert before == after
+
+    # multiple updates, versioning
+    assert q.update(10, None, 111, None, None, None) is True
+    assert q.update(10, None, None, 222, None, None) is True
+    latest = q.select(10, t.key, [1,1,1,1,1])[0].columns
+    assert latest == [10,111,222,300,400]
+    minus2 = q.select_version(10, t.key, [1,1,1,1,1], -2)[0].columns
+    assert minus2 == [10,111,200,300,400]
+
+    # delete excludes from sum
+    assert q.insert(20,1,2,3,4) is True
+    assert q.delete(20) is True
+    assert q.sum(10,20,1) == 111
+
+    print("All edge tests passed!")
+
+
 if __name__ == "__main__":
     run_tests()
+    test_edges()
+    print("All tests passed")
+
+
 

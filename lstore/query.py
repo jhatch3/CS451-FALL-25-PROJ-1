@@ -21,7 +21,7 @@ class Query:
     """
     def __init__(self, table):
         self.table = table
-        pass
+        # Store a reference to the table we will run queries on
 
     
     """
@@ -31,7 +31,8 @@ class Query:
     # Return False if record doesn't exist or is locked due to 2PL
     """
     def delete(self, primary_key):
-        pass
+        # Remove a record by its primary key
+        return self.table.delete(primary_key)
     
     
     """
@@ -40,23 +41,11 @@ class Query:
     # Returns False if insert fails for whatever reason
     """
     def insert(self, *columns):
+        #Reject inserts with None values
         if None in columns:
-            return False    #All columns should be passed a non-NULL value when inserting
-        schema_encoding = '0' * self.table.num_columns
-        # In the database, each record is assigned a unique identifier called a RID, which is often the physical
-        # location of where the record is actually stored. In L-Store, this identifier will never change during
-        # a record’s lifecycle
-
-        #TODO Find out what to put for RID
-        new_record = Record(rid=0, key=columns[0], columns=columns[1:], schema_encoding = schema_encoding)
-
-        #TODO need to somehow incorporate pages
-        self.table.allrecords[new_record.key] = new_record
-        if self.table.allrecords[columns[0]] == new_record:
-            return True
-        else:
-            return False 
- 
+            return False
+        # Let the table handle duplicate keys and RID assignment
+        return self.table.insert(*columns)
 
     
     """
@@ -69,7 +58,8 @@ class Query:
     # Assume that select will never be called on a key that doesn't exist
     """
     def select(self, search_key, search_key_index, projected_columns_index): 
-        pass
+        # Look up a record and only return requested columns
+        return self.table.select(search_key, search_key_index, projected_columns_index)
 
     
     """
@@ -83,7 +73,8 @@ class Query:
     # Assume that select will never be called on a key that doesn't exist
     """
     def select_version(self, search_key, search_key_index, projected_columns_index, relative_version):
-        pass
+        # Same as select, but lets you ask for an older version (e.g., -1 = base, 0 = latest)
+        return self.table.select_version(search_key, search_key_index, projected_columns_index, relative_version)
 
     
     """
@@ -92,22 +83,8 @@ class Query:
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
     def update(self, primary_key, *columns):
-
-        #TODO Probably change way of finding record using locate from index.py
-        #     And do something with pages probably
-        record = self.table.allrecords[primary_key]
-        if record == None:
-            return False
-        new_encoding = ''
-        for col_idx in range(self.table.num_columns-1):
-            if record.columns[col_idx] != columns[col_idx]:
-                new_encoding += '1'
-            else:
-                new_encoding += '0'
-            
-        record.schema_encoding = new_encoding       #Column updated so schema bit gets updated
-        self.table.allrecords[primary_key] = record
-        return True
+        # Update columns in a row by primary key. use none to leave a column unchanged
+        return self.table.update(primary_key, *columns)
 
     
     """
@@ -119,7 +96,8 @@ class Query:
     # Returns False if no record exists in the given range
     """
     def sum(self, start_range, end_range, aggregate_column_index):
-        pass
+        #return the sum of one column for keys in a given rang. latest version
+        return self.table.sum(start_range, end_range, aggregate_column_index)
 
     
     """
@@ -132,7 +110,8 @@ class Query:
     # Returns False if no record exists in the given range
     """
     def sum_version(self, start_range, end_range, aggregate_column_index, relative_version):
-        pass
+        # Same as sum, but computed over a specific version snapshot
+        return self.table.sum_version(start_range, end_range, aggregate_column_index, relative_version)
 
     
     """
@@ -144,10 +123,11 @@ class Query:
     # Returns False if no record matches key or if target record is locked by 2PL.
     """
     def increment(self, key, column):
-        r = self.select(key, self.table.key, [1] * self.table.num_columns)[0]
-        if r is not False:
-            updated_columns = [None] * self.table.num_columns
-            updated_columns[column] = r[column] + 1
-            u = self.update(key, *updated_columns)
-            return u
-        return False
+         #Increase the value of a single column by 1
+        rows = self.select(key, self.table.key, [1] * self.table.num_columns)
+        if not rows:
+            return False
+        current_val = rows[0].columns[column]
+        updated_columns = [None] * self.table.num_columns
+        updated_columns[column] = current_val + 1
+        return self.update(key, *updated_columns)
