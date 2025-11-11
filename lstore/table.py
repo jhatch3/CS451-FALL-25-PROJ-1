@@ -85,17 +85,21 @@ class Table:
         values = base[META_COLS: META_COLS + self.num_columns][:]
         # Keep track of which columns have ever been updated
         schema_accum = base[SCHEMA_ENCODING_COLUMN]
+        # Build lineage: newest -> older
+        lineage = []
         cur = base[INDIRECTION_COLUMN]
         while cur:
-            t = self._rows[cur]
+            lineage.append(cur)
+            cur = self._rows[cur][INDIRECTION_COLUMN]
+        # Apply updates from oldest -> newest so the newest wins
+        for tr in reversed(lineage):
+            t = self._rows[tr]
             schema = t[SCHEMA_ENCODING_COLUMN]
             tvals = t[META_COLS: META_COLS + self.num_columns]
-            # apply only updated columns from this tail
             for i in range(self.num_columns):
                 if (schema >> i) & 1:
                     values[i] = tvals[i]
             schema_accum |= schema
-            cur = t[INDIRECTION_COLUMN]
         return values, schema_accum
 
     def _version_view(self, base_rid: int, relative_version: int):
