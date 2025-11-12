@@ -10,6 +10,10 @@ create function will create a new table in the database. The Table constructor t
 name of the table, the number of columns, and the index of the key column. The drop function
 drops the specified table.
 """
+import os
+"""
+Source: https://www.freecodecamp.org/news/creating-a-directory-in-python-how-to-create-a-folder/
+"""
 class Database():
 
     def __init__(self):
