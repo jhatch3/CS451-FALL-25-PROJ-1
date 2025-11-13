@@ -67,18 +67,3 @@ class Node:
         self.value = value
         self.left_child = left_child
         self.right_child = right_child
-
-
-class Binary_Tree:
-    def __init__(self, Node_List, root):
-        self.Node_List = Node_List
-        self.root = root
-    
-    def insert_Node(value):
-        pass
-
-    def delete_Node(value):
-        pass
-
-    def search_dfs(value):
-        pass
