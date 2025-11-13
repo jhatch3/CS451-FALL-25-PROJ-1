@@ -79,5 +79,5 @@ class Index:
             return
         try:
             self.indices[column].delete(value, base_rid)
-        except (KeyError, ValueError):
+        except (ValueError, KeyError):
             pass  # Ignore if not found
