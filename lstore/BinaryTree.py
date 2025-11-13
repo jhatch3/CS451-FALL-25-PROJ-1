@@ -151,8 +151,8 @@ class Tree(object):
 
         Raises
         ------
-        KeyError
-            Node is not in the tree
+        
+        Node is not in the tree = None
         """
         if self.contains(data) == False:
             return None
@@ -208,8 +208,8 @@ class Tree(object):
         
         Raises
         ------
-        KeyError
-            Node is not in the tree
+        
+        Node is not in the tree = none
         """
         if self.contains(data) == False:
             return None
