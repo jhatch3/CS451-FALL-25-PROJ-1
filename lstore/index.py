@@ -60,10 +60,3 @@ class Index:
 
     def drop_index(self, column_number):
         self.indices[column_number] = None
-
-
-class Node:
-    def __init__(self, value, left_child, right_child):
-        self.value = value
-        self.left_child = left_child
-        self.right_child = right_child
