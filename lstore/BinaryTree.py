@@ -155,7 +155,7 @@ class Tree(object):
             Node is not in the tree
         """
         if self.contains(data) == False:
-            raise KeyError
+            return None
         node = self.find_node(data)
 
         if node.right != None:
@@ -212,7 +212,7 @@ class Tree(object):
             Node is not in the tree
         """
         if self.contains(data) == False:
-            raise KeyError
+            return None
         
         node = self.find_node(data)
 
