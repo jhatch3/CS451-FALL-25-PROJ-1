@@ -1,4 +1,5 @@
 from lstore.table import Table
+from lstore.bufferpool import BufferPool   
 import os
 import json
 
@@ -10,7 +11,6 @@ create function will create a new table in the database. The Table constructor t
 name of the table, the number of columns, and the index of the key column. The drop function
 drops the specified table.
 """
-import os
 """
 Source: https://www.freecodecamp.org/news/creating-a-directory-in-python-how-to-create-a-folder/
 """
@@ -20,6 +20,8 @@ class Database():
         self.tables = []
         self._tables_by_name = {}
         self._path = None
+        #bufferpool handle (created in open)
+        self.bufferpool = None
 
     # Milestone 2: simple JSON-based persistence
     def open(self, path):
@@ -28,6 +30,13 @@ class Database():
         """
         self._path = path
         os.makedirs(self._path, exist_ok=True)
+
+        # set up bufferpool pages directory and instance
+        pages_dir = os.path.join(self._path, "pages")
+        os.makedirs(pages_dir, exist_ok=True)
+        # you can change 256 to whatever capacity you want
+        self.bufferpool = BufferPool(capacity=256, root_dir=pages_dir)
+
         catalog_path = os.path.join(self._path, 'catalog.json')
         self.tables = []
         self._tables_by_name = {}
@@ -136,6 +145,10 @@ class Database():
                 json.dump(catalog, f)
         except Exception:
             pass
+
+        # lush any dirty pages from the bufferpool to disk
+        if self.bufferpool is not None:
+            self.bufferpool.persist_all()
 
     """
     Creates a new table
