@@ -13,38 +13,42 @@ Key column should be indexd by default, other columns can be indexed through thi
 Indices are usually B-Trees, but other data structures can be used as well.
 """
 
+from lstore.BinaryTree import Tree
+
 class Index:
 
     def __init__(self, table):
         # Store reference to table for num_columns and key
         self.table = table
-        # One index for each table. All our empty initially.
-        self.indices = [None] *  table.num_columns
-        # Always index the primary key column by default
-        self.indices[table.key] = {}
+        # One tree per column: Tree() for BST with multi-keys (RIDs) per value
+        self.indices = []
+        for _ in range(table.num_columns):
+            self.indices.append(Tree())
+        # Primary key is already indexed (empty tree)
 
     """
     # returns the location of all records with the given value on column "column"
     """
 
     def locate(self, column, value):
-        if self.indices[column] is None:
-            return []
-        else:
-            return self.indices[column].get(value, [])
+        if 0 <= column < len(self.indices):
+            node = self.indices[column].find_node(value)
+            return node.keys if node else []
+        return []
 
     """
     # Returns the RIDs of all records with values in column "column" between "begin" and "end"
     """
 
     def locate_range(self, begin, end, column):
-        if self.indices[column] is None:
-            return []
-        rids = []
-        for val, rid_list in self.indices[column].items():
-            if begin <= val <= end:
-                rids.extend(rid_list)
-        return rids
+        if 0 <= column < len(self.indices):
+            nodes = self.indices[column].find_node_range(begin, end)
+            rids = []
+            for node in nodes:
+                if node:
+                    rids.extend(node.keys)
+            return rids
+        return []
 
     """
     # optional: Create index on specific column
@@ -59,4 +63,21 @@ class Index:
     """
 
     def drop_index(self, column_number):
-        self.indices[column_number] = None
+        if 0 <= column_number < len(self.indices):
+            self.indices[column_number] = Tree()  # Reset to new empty tree
+
+    # Add a base RID for a value in a column
+    def add(self, column, value, base_rid):
+        if value is None:  # Skip NULLs/sentinels
+            return
+        if 0 <= column < len(self.indices):
+            self.indices[column].insert(value, base_rid)
+
+    # Remove a base RID for a value in a column
+    def remove(self, column, value, base_rid):
+        if value is None or not (0 <= column < len(self.indices)):
+            return
+        try:
+            self.indices[column].delete(value, base_rid)
+        except (ValueError, KeyError):
+            pass  # Ignore if not found
