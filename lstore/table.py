@@ -16,6 +16,9 @@ class Record:
         self.key = key
         self.columns = columns
         self.schema_encoding = schema_encoding  #Each record has a schema encoding showing which ones updated
+    
+    def __repr__(self):
+        return f"Record(rid={self.rid}, key={self.key}, columns={self.columns})"
 
 
 """
@@ -39,11 +42,13 @@ class Table:
     :param name: string         #Table name
     :param num_columns: int     #Number of Columns: all columns are integer
     :param key: int             #Index of table key in columns
+    :param bufferpool: BufferPool  #Optional bufferpool reference for disk I/O
     """
-    def __init__(self, name, num_columns, key):
+    def __init__(self, name, num_columns, key, bufferpool=None):
         self.name = name
         self.key = key                 # primary key column index among user columns
         self.num_columns = num_columns #  user columns count. not metadata
+        self.bufferpool = bufferpool   # reference to bufferpool for disk operations
 
         # RIDs
         self._next_base_rid = 1
@@ -85,9 +90,18 @@ class Table:
         values = base[META_COLS: META_COLS + self.num_columns][:]
         # Keep track of which columns have ever been updated
         schema_accum = base[SCHEMA_ENCODING_COLUMN]
+        
+        # Collect all tail records in order (newest to oldest)
+        tail_chain = []
         cur = base[INDIRECTION_COLUMN]
         while cur:
-            t = self._rows[cur]
+            tail_chain.append(cur)
+            cur = self._rows[cur][INDIRECTION_COLUMN]
+        
+        # Apply tails from oldest to newest (reverse order)
+        # This ensures newer updates overwrite older ones
+        for tail_rid in reversed(tail_chain):
+            t = self._rows[tail_rid]
             schema = t[SCHEMA_ENCODING_COLUMN]
             tvals = t[META_COLS: META_COLS + self.num_columns]
             # apply only updated columns from this tail
@@ -95,7 +109,7 @@ class Table:
                 if (schema >> i) & 1:
                     values[i] = tvals[i]
             schema_accum |= schema
-            cur = t[INDIRECTION_COLUMN]
+        
         return values, schema_accum
 
     def _version_view(self, base_rid: int, relative_version: int):
