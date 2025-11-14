@@ -61,7 +61,7 @@ class Database():
             try:
                 with open(table_file, 'r') as tf:
                     data = json.load(tf)
-                table = Table(data["name"], int(data["num_columns"]), int(data["key"]))
+                table = Table(data["name"], int(data["num_columns"]), int(data["key"]), self.bufferpool)
 
                 # restore counters
                 table._next_base_rid = int(data.get("next_base_rid", 1))
@@ -163,7 +163,7 @@ class Database():
             # drop the existing in-memory table with same name
             self.tables = [t for t in self.tables if t.name != name]
             del self._tables_by_name[name]
-        table = Table(name, num_columns, key_index)
+        table = Table(name, num_columns, key_index, self.bufferpool)
         self.tables.append(table)
         self._tables_by_name[name] = table
         return table
