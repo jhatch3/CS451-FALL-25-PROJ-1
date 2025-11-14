@@ -151,11 +151,11 @@ class Tree(object):
 
         Raises
         ------
-        KeyError
-            Node is not in the tree
+        
+        Node is not in the tree = None
         """
         if self.contains(data) == False:
-            raise KeyError
+            return None
         node = self.find_node(data)
 
         if node.right != None:
@@ -208,11 +208,11 @@ class Tree(object):
         
         Raises
         ------
-        KeyError
-            Node is not in the tree
+        
+        Node is not in the tree = none
         """
         if self.contains(data) == False:
-            raise KeyError
+            return None
         
         node = self.find_node(data)
 
