@@ -1,5 +1,6 @@
 from lstore.table import Table
-from lstore.bufferpool import BufferPool   
+from lstore.bufferpool import BufferPool
+from lstore.lock_manager import LockManager
 import os
 import json
 
@@ -22,6 +23,8 @@ class Database():
         self._path = None
         #bufferpool handle (created in open)
         self.bufferpool = None
+        #lock manager handle (created in open)
+        self.lock_manager = None
 
     # Milestone 2: simple JSON-based persistence
     def open(self, path):
@@ -37,6 +40,9 @@ class Database():
 
         # you can change capacity to what ever 
         self.bufferpool = BufferPool(capacity=256, root_dir=pages_dir)
+        
+        # set up lock manager for 2PL concurrency control
+        self.lock_manager = LockManager()
 
         catalog_path = os.path.join(self._path, 'catalog.json')
         self.tables = []
