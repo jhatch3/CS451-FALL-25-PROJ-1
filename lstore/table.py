@@ -15,7 +15,7 @@ class Record:
         self.rid = rid
         self.key = key
         self.columns = columns
-        self.schema_encoding = schema_encoding  #Each record has a schema encoding showing which ones updated
+        self.schema_encoding = schema_encoding  
     
     def __repr__(self):
         return f"Record(rid={self.rid}, key={self.key}, columns={self.columns})"
@@ -90,17 +90,6 @@ class Table:
         values = base[META_COLS: META_COLS + self.num_columns][:]
         # Keep track of which columns have ever been updated
         schema_accum = base[SCHEMA_ENCODING_COLUMN]
-<<<<<<< HEAD
-        # Build lineage: newest -> older
-        lineage = []
-        cur = base[INDIRECTION_COLUMN]
-        while cur:
-            lineage.append(cur)
-            cur = self._rows[cur][INDIRECTION_COLUMN]
-        # Apply updates from oldest -> newest so the newest wins
-        for tr in reversed(lineage):
-            t = self._rows[tr]
-=======
         
         # Collect all tail records in order (newest to oldest)
         tail_chain = []
@@ -113,17 +102,13 @@ class Table:
         # This ensures newer updates overwrite older ones
         for tail_rid in reversed(tail_chain):
             t = self._rows[tail_rid]
->>>>>>> d60eecbdb3303ce0b8eccf770170b5751ec149db
             schema = t[SCHEMA_ENCODING_COLUMN]
             tvals = t[META_COLS: META_COLS + self.num_columns]
             for i in range(self.num_columns):
                 if (schema >> i) & 1:
                     values[i] = tvals[i]
             schema_accum |= schema
-<<<<<<< HEAD
-=======
         
->>>>>>> d60eecbdb3303ce0b8eccf770170b5751ec149db
         return values, schema_accum
 
     def _version_view(self, base_rid: int, relative_version: int):
@@ -330,7 +315,41 @@ class Table:
                 total += vals[column_index]
         return total
 
-    # placeholder for later 
+    def _merge(self):
+        """
+        Public entry point for merge compaction.
+        """
+        self.__merge()
+
     def __merge(self):
-        # implement merge compaction later
-        pass
+        """
+        Materialize the latest view of each base record, reset indirection,
+        and discard its tail chain. This prevents unbounded tail growth.
+        """
+        tails_to_remove = []
+        now = self._now()
+
+        for base_rid, row in list(self._rows.items()):
+            # Skip tail rows and logically deleted rows
+            if base_rid >= 1_000_000_000 or self._deleted.get(base_rid, False):
+                continue
+
+            head = row[INDIRECTION_COLUMN]
+            if head == 0:
+                continue  # nothing to merge for this record
+
+            latest_vals, latest_schema = self._latest_view(base_rid)
+            # Rewrite base row with consolidated values
+            self._rows[base_rid] = self._compose_row(0, base_rid, now, latest_schema, latest_vals)
+            self._head[base_rid] = 0
+
+            # Collect the tail chain to prune
+            cur = head
+            while cur:
+                tails_to_remove.append(cur)
+                tail_row = self._rows.get(cur)
+                cur = tail_row[INDIRECTION_COLUMN] if tail_row else 0
+
+        # Drop old tail records
+        for tr in tails_to_remove:
+            self._rows.pop(tr, None)

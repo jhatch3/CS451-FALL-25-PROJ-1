@@ -121,6 +121,12 @@ class Database():
         if not self._path:
             return
 
+        # Compact all tables before persisting so base rows contain latest data
+        try:
+            self.merge_all()
+        except Exception:
+            pass
+
         catalog = {"tables": []}
         for table in self.tables:
             catalog["tables"].append({
@@ -157,6 +163,15 @@ class Database():
         # lush any dirty pages from the bufferpool to disk
         if self.bufferpool is not None:
             self.bufferpool.persist_all()
+
+    def merge_all(self):
+        """Trigger a merge on every loaded table."""
+        for table in self.tables:
+            try:
+                table._merge()
+            except Exception:
+                # Ignore merge failures to avoid blocking shutdown
+                pass
 
     """
     Creates a new table
