@@ -1,14 +1,28 @@
 from lstore.table import Table, Record
 from lstore.index import Index
+import threading
+
+# Thread-safe transaction ID generator
+_txn_id_counter = 0
+_txn_id_lock = threading.Lock()
+
+def _next_txn_id() -> int:
+    """Generate a unique transaction ID (threadsafe"""
+    global _txn_id_counter
+    with _txn_id_lock:
+        _txn_id_counter += 1
+        return _txn_id_counter
 
 class Transaction:
 
     """
     # Creates a transaction object.
     """
-    def __init__(self):
+    def __init__(self, lock_manager=None):
         self.queries = []
-        pass
+        self.txn_id = _next_txn_id()  # unique ID for this transaction
+        self.lock_manager = lock_manager  # reference to lock manager (set by caller if needed)
+        self.active = True
 
     """
     # Adds the given query to this transaction
@@ -34,6 +48,9 @@ class Transaction:
     
     def abort(self):
         #TODO: do roll-back and any other necessary operations
+        # release all locks held by this transaction
+        if self.lock_manager is not None:
+            self.lock_manager.release_all(self.txn_id)
         self.active = False
         #print("Transaction aborted.")
         return False
@@ -41,6 +58,9 @@ class Transaction:
     
     def commit(self):
         # TODO: commit to database
+        # release all locks held by this transaction (strict 2PL: release at commit)
+        if self.lock_manager is not None:
+            self.lock_manager.release_all(self.txn_id)
         self.active = False
        # print("Transaction committed.")
         return True

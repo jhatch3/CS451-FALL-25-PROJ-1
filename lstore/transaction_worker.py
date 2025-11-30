@@ -7,12 +7,11 @@ class TransactionWorker:
     """
     # Creates a transaction worker object.
     """
-    def __init__(self, transactions = []):
+    def __init__(self, transactions=None):
         self.stats = []
-        self.transactions = transactions
+        self.transactions = list(transactions) if transactions else []
         self.result = 0
         self.thread = None
-        pass
 
     
     """
@@ -26,9 +25,8 @@ class TransactionWorker:
     Runs all transaction as a thread
     """
     def run(self):
-        
-        # here you need to create a thread and call __run
-        thread = threading.Thread(target=self.__run)
+        # launch worker thread
+        self.thread = threading.Thread(target=self.__run)
         self.thread.start()
 
 
@@ -42,8 +40,10 @@ class TransactionWorker:
 
     def __run(self):
         for transaction in self.transactions:
-            # each transaction returns True if committed or False if aborted
-            self.stats.append(transaction.run())
-        # stores the number of transactions that committed
-        self.result = len(list(filter(lambda x: x, self.stats)))
+            # retry aborted transaction until commit
+            ok = transaction.run()
+            while ok is False:
+                ok = transaction.run()
+            self.stats.append(True)
+        self.result = sum(1 for x in self.stats if x)
 
