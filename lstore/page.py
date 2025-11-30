@@ -22,9 +22,8 @@ class Page:
             return True
 
     def write(self, value):
-        self.num_records += 1
-        #TODO probably wrong needs to figure out how to lay things out
         if self.has_capacity():
             self.data[self.num_records] = value
+            self.num_records += 1
         else:
-            print("Page is full")
+            return False
