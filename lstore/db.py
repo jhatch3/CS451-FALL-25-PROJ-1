@@ -34,7 +34,8 @@ class Database():
         # set up bufferpool pages directory and instance
         pages_dir = os.path.join(self._path, "pages")
         os.makedirs(pages_dir, exist_ok=True)
-        # you can change 256 to whatever capacity you want
+
+        # you can change capacity to what ever 
         self.bufferpool = BufferPool(capacity=256, root_dir=pages_dir)
 
         catalog_path = os.path.join(self._path, 'catalog.json')
@@ -65,26 +66,27 @@ class Database():
 
                 # restore counters
                 table._next_base_rid = int(data.get("next_base_rid", 1))
-                table._next_tail_rid = int(data.get("next_tail_rid", 1_000_000_000))
+                table._next_tail_rid = int(data.get("next_tail_rid", 1000000000))
 
-                # restore rows (list of [rid, row])
+                # Table Rows -> (list of [rid, row])
                 rows_list = data.get("rows", [])
                 for rid, row in rows_list:
                     table._rows[int(rid)] = list(row)
 
-                # rebuild head pointers from base rows' indirection
+                # rebuild head pointers 
                 for rid, row in table._rows.items():
-                    if rid < 1_000_000_000:  # base record
-                        table._head[rid] = row[0]  # INDIRECTION_COLUMN
+                    if rid < 1_000_000_000:  
+                        table._head[rid] = row[0]  
 
-                # restore pk mapping if present; else reconstruct
+                # restore pk mapping if present; 
+                # or remake
                 pk_list = data.get("pk", None)
                 if pk_list is not None:
                     for k, br in pk_list:
                         table._pk[int(k)] = int(br)
                 else:
                     for rid, row in table._rows.items():
-                        if rid < 1_000_000_000:
+                        if rid < 1000000000:
                             key_val = row[4 + table.key]
                             table._pk[int(key_val)] = rid
 
@@ -93,7 +95,7 @@ class Database():
                 for br, flag in del_list:
                     table._deleted[int(br)] = bool(flag)
 
-                # best-effort: rebuild primary key index structure if present
+                # rebuild primary key index structure if present
                 try:
                     for k, br in table._pk.items():
                         table._index_add_pk(k, br)
