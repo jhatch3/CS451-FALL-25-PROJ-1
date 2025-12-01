@@ -18,6 +18,10 @@ class LockManager:
         Acquire a lock on rid for txn_id. This simplified version always
         succeeds and just records the ownership.
         """
+        if self.already_locked(txn_id, rid) == True:
+            #print("Already locked")
+            return False
+        
         with self._mtx:
             self._locks[txn_id].add(rid)
         return True
@@ -29,8 +33,17 @@ class LockManager:
                 self._locks[txn_id].discard(rid)
                 if not self._locks[txn_id]:
                     del self._locks[txn_id]
+        
 
     def release_all(self, txn_id):
         """Release all locks held by txn_id."""
         with self._mtx:
             self._locks.pop(txn_id, None)
+    
+    def already_locked(self, txn_id, rid):
+        """Check if theres already a lock for the rid"""
+        with self._mtx:
+            if rid in self._locks.get(txn_id, ()):
+                return True
+            else: 
+                return False

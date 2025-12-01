@@ -30,9 +30,9 @@ class Query:
     # Returns True upon succesful deletion
     # Return False if record doesn't exist or is locked due to 2PL
     """
-    def delete(self, primary_key):
+    def delete(self, primary_key, txn_id = None):
         # Remove a record by its primary key
-        return self.table.delete(primary_key)
+        return self.table.delete(primary_key, txn_id = txn_id)
     
     
     """
@@ -40,7 +40,7 @@ class Query:
     # Return True upon succesful insertion
     # Returns False if insert fails for whatever reason
     """
-    def insert(self, *columns):
+    def insert(self, *columns, txn_id = None):
         #Reject inserts with None values
         if None in columns:
             return False
@@ -57,9 +57,9 @@ class Query:
     # Returns False if record locked by TPL
     # Assume that select will never be called on a key that doesn't exist
     """
-    def select(self, search_key, search_key_index, projected_columns_index): 
+    def select(self, search_key, search_key_index, projected_columns_index, txn_id = None):
         # Look up a record and only return requested columns
-        return self.table.select(search_key, search_key_index, projected_columns_index)
+        return self.table.select(search_key, search_key_index, projected_columns_index, txn_id = txn_id)
 
     
     """
@@ -72,7 +72,7 @@ class Query:
     # Returns False if record locked by TPL
     # Assume that select will never be called on a key that doesn't exist
     """
-    def select_version(self, search_key, search_key_index, projected_columns_index, relative_version):
+    def select_version(self, search_key, search_key_index, projected_columns_index, relative_version, txn_id = None):
         # Same as select, but lets you ask for an older version (e.g., -1 = base, 0 = latest)
         return self.table.select_version(search_key, search_key_index, projected_columns_index, relative_version)
 
@@ -82,9 +82,9 @@ class Query:
     # Returns True if update is succesful
     # Returns False if no records exist with given key or if the target record cannot be accessed due to 2PL locking
     """
-    def update(self, primary_key, *columns):
+    def update(self, primary_key, *columns, txn_id = None):
         # Update columns in a row by primary key. use none to leave a column unchanged
-        return self.table.update(primary_key, *columns)
+        return self.table.update(primary_key, *columns, txn_id = txn_id)
 
     
     """
@@ -95,7 +95,7 @@ class Query:
     # Returns the summation of the given range upon success
     # Returns False if no record exists in the given range
     """
-    def sum(self, start_range, end_range, aggregate_column_index):
+    def sum(self, start_range, end_range, aggregate_column_index, txn_id = None):
         #return the sum of one column for keys in a given rang. latest version
         return self.table.sum(start_range, end_range, aggregate_column_index)
 
@@ -109,7 +109,7 @@ class Query:
     # Returns the summation of the given range upon success
     # Returns False if no record exists in the given range
     """
-    def sum_version(self, start_range, end_range, aggregate_column_index, relative_version):
+    def sum_version(self, start_range, end_range, aggregate_column_index, relative_version, txn_id = None):
         # Same as sum, but computed over a specific version snapshot
         return self.table.sum_version(start_range, end_range, aggregate_column_index, relative_version)
 
@@ -122,7 +122,7 @@ class Query:
     # Returns True is increment is successful
     # Returns False if no record matches key or if target record is locked by 2PL.
     """
-    def increment(self, key, column):
+    def increment(self, key, column, txn_id = None):
          #Increase the value of a single column by 1
         rows = self.select(key, self.table.key, [1] * self.table.num_columns)
         if not rows:

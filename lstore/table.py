@@ -44,12 +44,12 @@ class Table:
     :param key: int             #Index of table key in columns
     :param bufferpool: BufferPool  #Optional bufferpool reference for disk I/O
     """
-    def __init__(self, name, num_columns, key, bufferpool=None):
+    def __init__(self, name, num_columns, key, bufferpool=None, lock_manager=None):
         self.name = name
         self.key = key                 # primary key column index among user columns
         self.num_columns = num_columns #  user columns count. not metadata
         self.bufferpool = bufferpool   # reference to bufferpool for disk operations
-
+        self.lock_manager = lock_manager
         # RIDs
         self._next_base_rid = 1
         self._next_tail_rid = 1_000_000_000
@@ -189,6 +189,14 @@ class Table:
                 pass
         except Exception:
             pass
+    def lock(self, txn_id, rid):
+        if txn_id == None:
+            return True
+        return self.lock_manager.acquire(txn_id, rid)
+    
+    def unlock(self, txn_id, rid):
+        if txn_id != None:
+            self.lock_manager.release(txn_id, rid)
 
     # M1 operations
     def insert(self, *columns) -> bool:
@@ -212,7 +220,7 @@ class Table:
         self._index_add_pk(key_val, rid)
         return True
 
-    def select(self, search_key: int, search_key_index: int, projected_columns):
+    def select(self, search_key: int, search_key_index: int, projected_columns, txn_id = None ) -> bool:
         """
         Return [Record] for search_key == key on the PK column (M1 only supports PK lookups).
         projected_columns: list of 0/1 (length == num_columns)
@@ -242,14 +250,20 @@ class Table:
         projected = [v if sel else None for v, sel in zip(vals, projected_columns)]
         return [Record(base_rid, search_key, schema_mask, projected)]
 
-    def update(self, search_key: int, *columns) -> bool:
+    def update(self, search_key: int, *columns, txn_id = None) -> bool:
         """
         Update row by PK; pass None to skip a column.
         """
-        if len(columns) != self.num_columns:
+        if self.lock(txn_id, search_key) == False: #Lock already used
             return False
+        
+        if len(columns) != self.num_columns:
+            self.unlock(txn_id, search_key)
+            return False
+        
         base_rid = self._pk.get(search_key)
         if not base_rid or self._deleted.get(base_rid, False):
+            self.unlock(txn_id, search_key)
             return False
 
         current_vals, _ = self._latest_view(base_rid)
@@ -260,6 +274,7 @@ class Table:
                 new_vals[i] = v
                 schema |= (1 << i)
         if schema == 0:
+            self.unlock(txn_id, search_key)
             return True  # nothing to change
 
         tail_rid = self._next_tail_rid
@@ -276,17 +291,25 @@ class Table:
         base_row[TIMESTAMP_COLUMN] = self._now()
         self._head[base_rid] = tail_rid
 
+        self.unlock(txn_id, search_key)
         return True
 
-    def delete(self, search_key: int) -> bool:
+    def delete(self, search_key: int, txn_id = None) -> bool:
         """
         Logical delete by PK (ignored by selects/sums).
         """
+        if self.lock(txn_id, search_key) == False: #Lock already used
+            return False
+        
         base_rid = self._pk.get(search_key)
         if not base_rid or self._deleted.get(base_rid, False):
+            self.unlock(txn_id, search_key)
             return False
+           
         self._deleted[base_rid] = True
         self._index_remove_pk(search_key, base_rid)
+
+        self.unlock(txn_id, search_key)
         return True
 
     def sum(self, start_key: int, end_key: int, column_index: int) -> int:

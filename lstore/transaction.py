@@ -39,7 +39,7 @@ class Transaction:
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
     def run(self):
         for query, args in self.queries:
-            result = query(*args)
+            result = query(*args, txn_id = self.txn_id)
             # If the query has failed the transaction should abort
             if result == False:
                 return self.abort()
