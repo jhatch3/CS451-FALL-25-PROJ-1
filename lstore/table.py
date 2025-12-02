@@ -238,15 +238,10 @@ class Table:
         Return [Record] for search_key == key on the PK column (M1 only supports PK lookups).
         projected_columns: list of 0/1 (length == num_columns)
         """
-        if self.lock(txn_id, search_key) == False: #Lock already used
-            return False
-        
         if search_key_index != self.key:
-            self.unlock(txn_id, search_key)
             return []
         base_rid = self._pk.get(search_key)
         if not base_rid or self._deleted.get(base_rid, False):
-            self.unlock(txn_id, search_key)
             return []
         # Getshared (S) lock for read operation
         if not self.lock(txn_id, search_key, mode="S"):
