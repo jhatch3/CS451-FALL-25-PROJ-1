@@ -45,7 +45,7 @@ class Query:
         if None in columns:
             return False
         # Let the table handle duplicate keys and RID assignment
-        return self.table.insert(*columns)
+        return self.table.insert(*columns, txn_id=txn_id)
 
     
     """

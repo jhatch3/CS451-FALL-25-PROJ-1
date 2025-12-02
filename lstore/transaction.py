@@ -33,7 +33,9 @@ class Transaction:
     """
     def add_query(self, query, table, *args):
         self.queries.append((query, args))
-        # use grades_table for aborting
+        # store table reference to get lock manager if needed
+        if self.lock_manager is None and table is not None:
+            self.lock_manager = getattr(table, 'lock_manager', None)
 
         
     # If you choose to implement this differently this method must still return True if transaction commits or False on abort
