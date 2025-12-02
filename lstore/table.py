@@ -189,23 +189,36 @@ class Table:
                 pass
         except Exception:
             pass
-    def lock(self, txn_id, rid):
-        if txn_id == None:
+    def lock(self, txn_id, rid, mode="X"):
+        """
+        Acquire a lock on a resource (rid).
+        mode: "S" for shared (read) lock, "X" for exclusive (write) lock.
+        Returns True if lock acquired, False if conflict (transaction should abort).
+        """
+        if txn_id == None or self.lock_manager is None:
             return True
-        return self.lock_manager.acquire(txn_id, rid)
+        if mode == "S":
+            return self.lock_manager.acquire_s(txn_id, rid)
+        else:  # mode = X
+            return self.lock_manager.acquire_x(txn_id, rid)
     
     def unlock(self, txn_id, rid):
         if txn_id != None:
             self.lock_manager.release(txn_id, rid)
 
     # M1 operations
-    def insert(self, *columns) -> bool:
+    def insert(self, *columns, txn_id=None) -> bool:
         """
         Insert a new base record. Return True on success; False on duplicate PK or wrong arity.
         """
         if len(columns) != self.num_columns:
             return False
         key_val = columns[self.key]
+        
+        # Acquire exclusive (X) lock for write operation
+        if not self.lock(txn_id, key_val, mode="X"):
+            return False  # lock conflict, transaction should abort
+        
         if key_val in self._pk:
             return False  # reject duplicate primary keys
 
@@ -230,8 +243,12 @@ class Table:
         base_rid = self._pk.get(search_key)
         if not base_rid or self._deleted.get(base_rid, False):
             return []
+        # Getshared (S) lock for read operation
+        if not self.lock(txn_id, search_key, mode="S"):
+            return False  #lock conflict. transaction should abort
         vals, schema_mask = self._latest_view(base_rid)
         projected = [v if sel else None for v, sel in zip(vals, projected_columns)]
+        # Note: In strict 2PL locks are not released here. they're held until commit/abort
         return [Record(base_rid, search_key, schema_mask, projected)]
 
     def select_version(self, search_key: int, search_key_index: int, projected_columns, relative_version: int):
@@ -254,16 +271,15 @@ class Table:
         """
         Update row by PK; pass None to skip a column.
         """
-        if self.lock(txn_id, search_key) == False: #Lock already used
-            return False
+        # Get exclusive (X) lock for write operation
+        if self.lock(txn_id, search_key, mode="X") == False:
+            return False  # lock conflict. transaction should abort
         
         if len(columns) != self.num_columns:
-            self.unlock(txn_id, search_key)
             return False
         
         base_rid = self._pk.get(search_key)
         if not base_rid or self._deleted.get(base_rid, False):
-            self.unlock(txn_id, search_key)
             return False
 
         current_vals, _ = self._latest_view(base_rid)
@@ -274,7 +290,6 @@ class Table:
                 new_vals[i] = v
                 schema |= (1 << i)
         if schema == 0:
-            self.unlock(txn_id, search_key)
             return True  # nothing to change
 
         tail_rid = self._next_tail_rid
@@ -291,25 +306,23 @@ class Table:
         base_row[TIMESTAMP_COLUMN] = self._now()
         self._head[base_rid] = tail_rid
 
-        self.unlock(txn_id, search_key)
         return True
 
     def delete(self, search_key: int, txn_id = None) -> bool:
         """
         Logical delete by PK (ignored by selects/sums).
         """
-        if self.lock(txn_id, search_key) == False: #Lock already used
-            return False
+        # get exclusive (X) lock for write operation
+        if self.lock(txn_id, search_key, mode="X") == False:
+            return False  # lock conflict, transaction should abort
         
         base_rid = self._pk.get(search_key)
         if not base_rid or self._deleted.get(base_rid, False):
-            self.unlock(txn_id, search_key)
             return False
            
         self._deleted[base_rid] = True
         self._index_remove_pk(search_key, base_rid)
 
-        self.unlock(txn_id, search_key)
         return True
 
     def sum(self, start_key: int, end_key: int, column_index: int) -> int:
